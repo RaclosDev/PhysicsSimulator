@@ -22,56 +22,70 @@ import simulator.view.MainWindow;
 
 import javax.swing.*;
 import java.awt.*;
-import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
-
-import static java.lang.Integer.valueOf;
 
 public class Main {
 
-    // default values for some parameters
-    //
+    // Default values for some parameters
     private final static Double _dtimeDefaultValue = 2500.0;
+    private final static int DEFAULT_STEPS = 150;
+    private final static String DEFAULT_MODE = "batch";
 
-    // some attributes to stores values corresponding to command-line parameters
-    //
+    // Attributes to store values corresponding to command-line parameters
     private static Double _dtime = null;
     private static String _inFile = null;
     private static String _outFile = null;
     private static JSONObject _gravityLawsInfo = null;
     private static Integer _steps = null;
-    private static String _mode = null;
-    // factories
+    private static ExecutionMode _mode = null;
+
+    // Factories
     private static Factory<Body> _bodyFactory;
     private static Factory<GravityLaws> _gravityLawsFactory;
 
+    // Execution modes
+    private enum ExecutionMode {
+        BATCH, GUI
+    }
+
+    /**
+     * Initializes the factories for bodies and gravity laws.
+     */
     private static void init() {
-        //_bodyFactory se inicializa con:
+        initFactories();
+    }
+
+    /**
+     * Initializes the body and gravity laws factories.
+     */
+    private static void initFactories() {
+        // Initialize _bodyFactory
         ArrayList<Builder<Body>> bodyBuilders = new ArrayList<>();
         bodyBuilders.add(new BasicBodyBuilder());
         bodyBuilders.add(new MassLosingBodyBuilder());
-        _bodyFactory = new BuilderBasedFactory<Body>(bodyBuilders);
-        //_gravityLawsFactory se inicializa con:
+        _bodyFactory = new BuilderBasedFactory<>(bodyBuilders);
+
+        // Initialize _gravityLawsFactory
         ArrayList<Builder<GravityLaws>> gravityLawsBuilders = new ArrayList<>();
         gravityLawsBuilders.add(new NewtonUniversalGravitationBuilder());
         gravityLawsBuilders.add(new FallingToCenterGravityBuilder());
         gravityLawsBuilders.add(new NoGravityBuilder());
-        _gravityLawsFactory = new BuilderBasedFactory<GravityLaws>(gravityLawsBuilders);
-
+        _gravityLawsFactory = new BuilderBasedFactory<>(gravityLawsBuilders);
     }
 
+    /**
+     * Parses the command-line arguments and sets the corresponding parameters.
+     *
+     * @param args Command-line arguments.
+     */
     private static void parseArgs(String[] args) {
-
-        // define the valid command line options
-        //
         Options cmdLineOptions = buildOptions();
-
-        // parse the command line as provided in args
-        //
         CommandLineParser parser = new DefaultParser();
+
         try {
             CommandLine line = parser.parse(cmdLineOptions, args);
             parseHelpOption(line, cmdLineOptions);
@@ -81,70 +95,35 @@ public class Main {
             parseGravityLawsOption(line);
             parseStepsOption(line);
             parseMode(line);
-            // if there are some remaining arguments, then something wrong is
-            // provided in the command line!
-            //
-            String[] remaining = line.getArgs();
-            if (remaining.length > 0) {
-                String error = "Illegal arguments:";
-                for (String o : remaining)
-                    error += (" " + o);
-                throw new ParseException(error);
+
+            // Additional validation
+            if (_mode == ExecutionMode.BATCH && (_inFile == null || _outFile == null || _steps == null)) {
+                throw new ParseException("In batch mode, input file, output file, and steps are required.");
             }
 
         } catch (ParseException e) {
-            System.err.println(e.getLocalizedMessage());
+            System.err.println("Error parsing command-line arguments: " + e.getMessage());
             System.exit(1);
         }
-
     }
 
+    /**
+     * Builds the command-line options.
+     *
+     * @return The command-line options.
+     */
     private static Options buildOptions() {
-        Options cmdLineOptions = new Options();
+        Options options = new Options();
 
-        // help
-        cmdLineOptions.addOption(Option.builder("h").longOpt("help").desc("Print this message.").build());
+        options.addOption(Option.builder("h").longOpt("help").desc("Print this message.").build());
+        options.addOption(Option.builder("i").longOpt("input").hasArg().desc("Bodies JSON input file.").build());
+        options.addOption(Option.builder("dt").longOpt("delta-time").hasArg()
+                .desc("A double representing actual time, in seconds, per simulation step. Default value: " + _dtimeDefaultValue + ".").build());
+        options.addOption(Option.builder("o").longOpt("output").hasArg().desc("Output file, where output is written. Default value: the standard output.").build());
+        options.addOption(Option.builder("s").longOpt("steps").hasArg().desc("An integer representing the number of simulation steps. Default value: " + DEFAULT_STEPS + ".").build());
+        options.addOption(Option.builder("m").longOpt("mode").hasArg().desc("Execution Mode. Possible values: 'batch' (Batch mode), 'gui' (Graphical User Interface mode). Default value: '" + DEFAULT_MODE + "'.").build());
 
-        // input file
-        cmdLineOptions.addOption(Option.builder("i").longOpt("input").hasArg().desc("Bodies JSON input file.").build());
-
-        // delta-time
-        cmdLineOptions.addOption(Option.builder("dt").longOpt("delta-time").hasArg()
-                .desc("A double representing actual time, in seconds, per simulation step. Default value: "
-                        + _dtimeDefaultValue + ".")
-                .build());
-
-        // gravity laws -- there is a workaround to make it work even when
-        // _gravityLawsFactory is null.
-        //
-        String gravityLawsValues = "N/A";
-        String defaultGravityLawsValue = "N/A";
-        if (_gravityLawsFactory != null) {
-            gravityLawsValues = "";
-            for (JSONObject fe : _gravityLawsFactory.getInfo()) {
-                if (gravityLawsValues.length() > 0) {
-                    gravityLawsValues = gravityLawsValues + ", ";
-                }
-                gravityLawsValues = gravityLawsValues + "'" + fe.getString("type") + "' (" + fe.getString("desc") + ")";
-            }
-            defaultGravityLawsValue = _gravityLawsFactory.getInfo().get(0).getString("type");
-        }
-        cmdLineOptions.addOption(Option.builder("gl").longOpt("gravity-laws").hasArg()
-                .desc("Gravity laws to be used in the simulator. Possible values: " + gravityLawsValues
-                        + ". Default value: '" + defaultGravityLawsValue + "'.")
-                .build());
-
-        // output file
-        cmdLineOptions.addOption(Option.builder("o").longOpt("output").hasArg().desc("output <arg> Output file, where output is written. Default value: thestandard output.").build());
-
-        // steps
-        cmdLineOptions.addOption(Option.builder("s").longOpt("steps").hasArg().desc("steps <arg> An integer representing the number of simulation steps. Default value: 150.").build());
-
-        // mode
-        cmdLineOptions.addOption(Option.builder("m").longOpt("mode").hasArg().desc("Execution Mode. Possible values: ’batch’ (Batch mode), ’gui’ (Graphical User Interface mode). Default value: ’batch’.").build());
-
-
-        return cmdLineOptions;
+        return options;
     }
 
     private static void parseHelpOption(CommandLine line, Options cmdLineOptions) {
@@ -157,25 +136,24 @@ public class Main {
 
     private static void parseInFileOption(CommandLine line) throws ParseException {
         _inFile = line.getOptionValue("i");
-        if (_inFile == null && line.getOptionValue("m").equals("batch")) {
-            throw new ParseException("An input file of bodies is required");
+        if (_inFile == null && _mode == ExecutionMode.BATCH) {
+            throw new ParseException("An input file of bodies is required in batch mode.");
         }
     }
 
     private static void parseOutFileOption(CommandLine line) throws ParseException {
         _outFile = line.getOptionValue("o");
-        if (_outFile == null && line.getOptionValue("m").equals("batch")) {
-            throw new ParseException("Error en OutFile");
+        if (_outFile == null && _mode == ExecutionMode.BATCH) {
+            throw new ParseException("An output file is required in batch mode.");
         }
     }
 
     private static void parseStepsOption(CommandLine line) throws ParseException {
-        if (line.getOptionValue("m").equals("batch")) {
-            _steps = valueOf(line.getOptionValue("s"));
-            if (_steps == null) {
-                throw new ParseException("No hay steps");
-            }
+        String steps = line.getOptionValue("s");
+        if (_mode == ExecutionMode.BATCH && steps == null) {
+            throw new ParseException("The number of steps is required in batch mode.");
         }
+        _steps = steps != null ? Integer.parseInt(steps) : DEFAULT_STEPS;
     }
 
     private static void parseDeltaTimeOption(CommandLine line) throws ParseException {
@@ -189,11 +167,7 @@ public class Main {
     }
 
     private static void parseGravityLawsOption(CommandLine line) throws ParseException {
-
-        // this line is just a work around to make it work even when _gravityLawsFactory
-        // is null, you can remove it when've defined _gravityLawsFactory
-        if (_gravityLawsFactory == null)
-            return;
+        if (_gravityLawsFactory == null) return;
 
         String gl = line.getOptionValue("gl");
         if (gl != null) {
@@ -212,63 +186,59 @@ public class Main {
     }
 
     private static void parseMode(CommandLine line) throws ParseException {
-
-        _mode = line.getOptionValue("m");
-        if (_mode == null) {
-            throw new ParseException("Error en el modo");
+        String mode = line.getOptionValue("m", DEFAULT_MODE).toLowerCase();
+        switch (mode) {
+            case "batch":
+                _mode = ExecutionMode.BATCH;
+                break;
+            case "gui":
+                _mode = ExecutionMode.GUI;
+                break;
+            default:
+                throw new ParseException("Invalid execution mode: " + mode);
         }
-
     }
 
     private static void startBatchMode() throws Exception {
-
-        InputStream in = new FileInputStream(_inFile);
-        OutputStream out = new FileOutputStream(_outFile);
-        //_gravityLawsFactory.createInstance(_gravityLawsInfo); lo he metido abajo
-        PhysicsSimulator simulator = new PhysicsSimulator(_gravityLawsFactory.createInstance(_gravityLawsInfo), _dtime);
-        Controller controller = new Controller(simulator, _bodyFactory, _gravityLawsFactory);
-        controller.loadBodies(in);
-        controller.run(_steps, out);
-
+        try (InputStream in = Files.newInputStream(Paths.get(_inFile));
+             OutputStream out = Files.newOutputStream(Paths.get(_outFile))) {
+            PhysicsSimulator simulator = new PhysicsSimulator(_gravityLawsFactory.createInstance(_gravityLawsInfo), _dtime);
+            Controller controller = new Controller(simulator, _bodyFactory, _gravityLawsFactory);
+            controller.loadBodies(in);
+            controller.run(_steps, out);
+        }
     }
 
     private static void startGUIMode() throws Exception {
-
         PhysicsSimulator simulator = new PhysicsSimulator(_gravityLawsFactory.createInstance(_gravityLawsInfo), _dtime);
         Controller ctrl = new Controller(simulator, _bodyFactory, _gravityLawsFactory);
 
         if (_inFile != null) {
-            InputStream in = new FileInputStream(_inFile);
-            ctrl.loadBodies(in);
+            try (InputStream in = Files.newInputStream(Paths.get(_inFile))) {
+                ctrl.loadBodies(in);
+            }
         }
 
-
-        SwingUtilities.invokeAndWait(new Runnable() {
-            @Override
-            public void run() {
-                MainWindow window = new MainWindow(ctrl);
-                Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
-                window.setSize(screenSize.width, screenSize.height);
-                window.setLocationRelativeTo(null);
-                window.setVisible(true);
-            }
+        SwingUtilities.invokeAndWait(() -> {
+            MainWindow window = new MainWindow(ctrl);
+            Dimension screenSize = Toolkit.getDefaultToolkit().getScreenSize();
+            window.setSize(screenSize.width, screenSize.height);
+            window.setLocationRelativeTo(null);
+            window.setVisible(true);
         });
-
     }
 
     private static void start(String[] args) throws Exception {
         parseArgs(args);
 
         switch (_mode) {
-            case "batch":
+            case BATCH:
                 startBatchMode();
                 break;
-            case "gui":
+            case GUI:
                 startGUIMode();
                 break;
-
         }
-        //todo poner para ambos modos
     }
 
     public static void main(String[] args) {
@@ -276,9 +246,11 @@ public class Main {
             init();
             start(args);
         } catch (Exception e) {
-            System.err.println("Something went wrong ...");
-            System.err.println();
+            System.err.println("Error during simulation execution:");
+            System.err.println(" - Cause: " + e.getMessage());
+            System.err.println(" - Details:");
             e.printStackTrace();
+            System.exit(1);
         }
     }
 }

@@ -2,111 +2,80 @@ package simulator.model;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class PhysicsSimulator {
 
-    private GravityLaws gravityLaws;   //leyes de la gravedad a aplicar.
-    private List<Body> bodies;         //cuerpos de la simulación;
-    private double dt;                 //incremento del tiempo. TIEMPO REAL POR PASO
-    private double time;               //número de pasos que se ejecuta la simulación.
-    private List<SimulatorObserver> simulatorObservers;
+    private GravityLaws gravityLaws; // Gravity laws to apply
+    private List<Body> bodies;      // Bodies in the simulation
+    private double deltaTime;       // Real time per step
+    private double time;            // Total simulation time
+    private List<SimulatorObserver> observers; // Observers
 
-    public PhysicsSimulator(GravityLaws gravityLaws, double dt) {
-        this.gravityLaws = gravityLaws;
-        this.dt = dt;
-        time = 0;
-        bodies = new ArrayList<>();
-        simulatorObservers = new ArrayList<>();
+    public PhysicsSimulator(GravityLaws gravityLaws, double deltaTime) {
+        this.gravityLaws = Objects.requireNonNull(gravityLaws, "Gravity laws cannot be null");
+        if (deltaTime <= 0) {
+            throw new IllegalArgumentException("Delta time must be positive");
+        }
+        this.deltaTime = deltaTime;
+        this.time = 0;
+        this.bodies = new ArrayList<>();
+        this.observers = new ArrayList<>();
     }
 
-    public void addBody(Body b) {//que añade b a bodies.
-        boolean newBody = true;
-        for (Body body : bodies) {
-            if (body.getId().equals(b.getId())) {
-                newBody = false;
-                break;
-            }
-        }
+    public void addBody(Body body) {
+        Objects.requireNonNull(body, "Body cannot be null");
 
-        if (newBody == true) {
-            bodies.add(b);
+        boolean isNewBody = bodies.stream().noneMatch(b -> b.getId().equals(body.getId()));
+        if (isNewBody) {
+            bodies.add(body);
+            observers.forEach(o -> o.onBodyAdded(bodies, body));
         }
-
-        for (SimulatorObserver o : simulatorObservers) {
-            o.onBodyAdded(bodies, b);
-        }
-
     }
 
     public void advance() {
         gravityLaws.apply(bodies);
-        //NewtonUniversalGravitation n = new NewtonUniversalGravitation();
-        // n.apply(bodies);
-
-        for (Body bodies : bodies) {
-            bodies.move(dt);
-        }
-        time += dt;
-
-        for (SimulatorObserver o : simulatorObservers) {
-            o.onAdvance(bodies, time);
-        }
+        bodies.forEach(b -> b.move(deltaTime));
+        time += deltaTime;
+        observers.forEach(o -> o.onAdvance(bodies, time));
     }
 
+    @Override
     public String toString() {
-        String infoBodies;
-
-        infoBodies = "{ \"time\": " + time + ", \"bodies\": [";
-
+        StringBuilder sb = new StringBuilder();
+        sb.append("{ \"time\": ").append(time).append(", \"bodies\": [");
         for (int i = 0; i < bodies.size(); i++) {
-            infoBodies += "" + bodies.get(i).toString();
+            sb.append(bodies.get(i).toString());
             if (i < bodies.size() - 1) {
-                infoBodies += ", ";
+                sb.append(", ");
             }
-
         }
-        infoBodies += "] }";
-
-        return infoBodies;
+        sb.append("] }");
+        return sb.toString();
     }
 
     public void reset() {
-        bodies = new ArrayList<>();
+        bodies.clear();
         time = 0;
-        for (SimulatorObserver o : simulatorObservers) {
-            o.onReset(bodies, time, dt, gravityLaws.toString());
+        observers.forEach(o -> o.onReset(bodies, time, deltaTime, gravityLaws.toString()));
+    }
+
+    public void setDeltaTime(double deltaTime) {
+        if (deltaTime <= 0) {
+            throw new IllegalArgumentException("Delta time must be positive");
         }
-
+        this.deltaTime = deltaTime;
+        observers.forEach(o -> o.onDeltaTimeChanged(deltaTime));
     }
 
-    public void setDeltaTime(double dt) throws IllegalArgumentException {
-        if (dt <= 0) {
-            throw new IllegalArgumentException("Delta time no puede ser <=0");
-        } else if (Double.toString(dt) == "0") {
-            throw new IllegalArgumentException("Delta time no puede ser un string");
-        } else {
-            this.dt = dt;
-            for (SimulatorObserver o : simulatorObservers) {
-                o.onDeltaTimeChanged(dt);
-            }
-        }
+    public void setGravityLaws(GravityLaws gravityLaws) {
+        this.gravityLaws = Objects.requireNonNull(gravityLaws, "Gravity laws cannot be null");
+        observers.forEach(o -> o.onGravityLawChanged(gravityLaws.toString()));
     }
 
-    public void setGravityLaws(GravityLaws gravityLaws) throws IllegalArgumentException {
-
-        if (gravityLaws == null) {
-            throw new IllegalArgumentException("Gravity Law == null");
-        } else {
-            this.gravityLaws = gravityLaws;
-            for (SimulatorObserver o : simulatorObservers) {
-                o.onGravityLawChanged(gravityLaws.toString());
-            }
-        }
+    public void addObserver(SimulatorObserver observer) {
+        Objects.requireNonNull(observer, "Observer cannot be null");
+        observers.add(observer);
+        observer.onRegister(bodies, time, deltaTime, gravityLaws.toString());
     }
-
-    public void addObserver(SimulatorObserver o) {
-        simulatorObservers.add(o);
-        o.onRegister(bodies, time, dt, gravityLaws.toString());
-    }
-
 }

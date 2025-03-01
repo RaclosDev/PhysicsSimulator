@@ -4,33 +4,22 @@ import simulator.misc.Vector;
 
 import java.util.List;
 
-
 public class FallingToCenterGravity implements GravityLaws {
 
-    static private final double g = 9.81;
-
-    public FallingToCenterGravity() {
-    }
+    private static final double GRAVITY = 9.81;
 
     @Override
     public void apply(List<Body> bodies) {
+        Vector center = new Vector(2); // Center of gravity (0, 0)
 
-        Vector center = new Vector(2);
-
-        Vector gravityDir = new Vector(2);
-
-
-        // TODO Auto-generated method stub
         for (Body body : bodies) {
-            gravityDir = center.minus(body.getPosition()).direction();
-            body.setAcceleration(gravityDir.scale(g));
-            gravityDir.equals(body.getAcceleration());
-
+            Vector gravityDirection = center.minus(body.getPosition()).direction();
+            body.setAcceleration(gravityDirection.scale(GRAVITY));
         }
     }
 
+    @Override
     public String toString() {
-        return ("Falling to center gravity");
+        return "Falling to center gravity";
     }
-
 }

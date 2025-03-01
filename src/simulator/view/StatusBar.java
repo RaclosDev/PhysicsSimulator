@@ -9,77 +9,64 @@ import java.awt.*;
 import java.util.List;
 
 public class StatusBar extends JPanel implements SimulatorObserver {
-    // ...
-    private JLabel _currTime; // for current time
-    private JLabel _currLaws; // for gravity laws
-    private JLabel _numOfBodies; // for number of bodies
 
-    StatusBar(Controller ctrl) {
+    private JLabel currentTimeLabel;
+    private JLabel currentLawsLabel;
+    private JLabel numberOfBodiesLabel;
+
+    StatusBar(Controller controller) {
         initGUI();
-        ctrl.addObserver(this);
+        controller.addObserver(this);
     }
 
     private void initGUI() {
+        setLayout(new FlowLayout(FlowLayout.LEFT));
+        setBorder(BorderFactory.createBevelBorder(1));
 
+        currentTimeLabel = new JLabel("Time: 0");
+        numberOfBodiesLabel = new JLabel("Bodies: 0");
+        currentLawsLabel = new JLabel("Law: Select a law");
 
-        this.setLayout(new FlowLayout(FlowLayout.LEFT));
-        this.setBorder(BorderFactory.createBevelBorder(1));
-        _currTime = new JLabel("Time: 0");
-        _numOfBodies = new JLabel("Bodies: 0");
-        _currLaws = new JLabel("Law: Select a law");
-
-
-        this.add(_currTime);
-        this.add(_numOfBodies);
-        this.add(_currLaws);
-
-// TODO complete the code to build the tool bar
+        add(currentTimeLabel);
+        add(numberOfBodiesLabel);
+        add(currentLawsLabel);
     }
 
     @Override
-    public void onRegister(List<Body> bodies, double time, double dt, String gLawsDesc) {
-
+    public void onRegister(List<Body> bodies, double time, double dt, String gravityLawsDesc) {
+        updateLabels(bodies, time, gravityLawsDesc);
     }
 
     @Override
-    public void onReset(List<Body> bodies, double time, double dt, String gLawsDesc) {
-
+    public void onReset(List<Body> bodies, double time, double dt, String gravityLawsDesc) {
+        updateLabels(bodies, time, gravityLawsDesc);
     }
 
     @Override
-    public void onBodyAdded(List<Body> bodies, Body b) {
-
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _numOfBodies.setText("Bodies: " + bodies.size());
-            }
-        });
+    public void onBodyAdded(List<Body> bodies, Body body) {
+        SwingUtilities.invokeLater(() -> numberOfBodiesLabel.setText("Bodies: " + bodies.size()));
     }
 
     @Override
     public void onAdvance(List<Body> bodies, double time) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _currTime.setText("Time: " + time);
-            }
-        });
-
+        SwingUtilities.invokeLater(() -> currentTimeLabel.setText("Time: " + time));
     }
 
     @Override
     public void onDeltaTimeChanged(double dt) {
+        // No es necesario actualizar la barra de estado
     }
 
     @Override
-    public void onGravityLawChanged(String gLawsDesc) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _currLaws.setText(gLawsDesc);
-                System.out.println("Law: " + gLawsDesc);
-            }
+    public void onGravityLawChanged(String gravityLawsDesc) {
+        SwingUtilities.invokeLater(() -> currentLawsLabel.setText("Law: " + gravityLawsDesc));
+    }
+
+    private void updateLabels(List<Body> bodies, double time, String gravityLawsDesc) {
+        SwingUtilities.invokeLater(() -> {
+            currentTimeLabel.setText("Time: " + time);
+            numberOfBodiesLabel.setText("Bodies: " + bodies.size());
+            currentLawsLabel.setText("Law: " + gravityLawsDesc);
         });
     }
 }

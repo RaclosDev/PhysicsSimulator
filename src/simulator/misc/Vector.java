@@ -2,106 +2,116 @@ package simulator.misc;
 
 public class Vector {
 
-	private final int _n; // dimension of the vector
-	private double[] _data; // array of vector's components
+    private final int dimension; // Dimension of the vector
+    private final double[] components; // Array of vector's components
 
-	// create the zero vector of length n
-	public Vector(int n) {
-		_n = n;
-		_data = new double[n];
-	}
+    // Create the zero vector of length n
+    public Vector(int dimension) {
+        this.dimension = dimension;
+        this.components = new double[dimension];
+    }
 
-	// copy constructor
-	public Vector(Vector v) {
-		_n = v._n;
-		_data = v._data.clone();
-	}
+    // Copy constructor
+    public Vector(Vector v) {
+        this.dimension = v.dimension;
+        this.components = v.components.clone();
+    }
 
-	// create a vector from an array
-	public Vector(double[] data) {
-		_n = data.length;
-		_data = data.clone();
-	}
+    // Create a vector from an array
+    public Vector(double[] components) {
+        this.dimension = components.length;
+        this.components = components.clone();
+    }
 
-	// return the dimension of the vector
-	public int dim() {
-		return _n;
-	}
+    // Return the dimension of the vector
+    public int dim() {
+        return dimension;
+    }
 
-	// return the inner product of this Vector a and b
-	public double dot(Vector that) {
-		if (dim() != that.dim())
-			throw new IllegalArgumentException("dimensions disagree");
-		double sum = 0.0;
-		for (int i = 0; i < _n; i++)
-			sum = sum + (_data[i] * that._data[i]);
-		return sum;
-	}
+    // Return the inner product of this Vector and another
+    public double dot(Vector that) {
+        if (dim() != that.dim()) {
+            throw new IllegalArgumentException("Dimensions disagree");
+        }
+        double sum = 0.0;
+        for (int i = 0; i < dimension; i++) {
+            sum += components[i] * that.components[i];
+        }
+        return sum;
+    }
 
-	// return the length of the vector (Euclidean norm)
-	public double magnitude() {
-		return Math.sqrt(dot(this));
-	}
+    // Return the length of the vector (Euclidean norm)
+    public double magnitude() {
+        return Math.sqrt(dot(this));
+    }
 
-	// return the distance between this and that (Euclidean)
-	public double distanceTo(Vector that) {
-		if (dim() != that.dim())
-			throw new IllegalArgumentException("dimensions disagree");
-		return minus(that).magnitude();
-	}
+    // Return the distance between this and another vector (Euclidean)
+    public double distanceTo(Vector that) {
+        if (dim() != that.dim()) {
+            throw new IllegalArgumentException("Dimensions disagree");
+        }
+        return minus(that).magnitude();
+    }
 
-	// create and return a new object whose value is (this + that)
-	public Vector plus(Vector that) {
-		if (dim() != that.dim())
-			throw new IllegalArgumentException("dimensions disagree");
-		Vector c = new Vector(_n);
-		for (int i = 0; i < _n; i++)
-			c._data[i] = _data[i] + that._data[i];
-		return c;
-	}
+    // Create and return a new vector whose value is (this + that)
+    public Vector plus(Vector that) {
+        if (dim() != that.dim()) {
+            throw new IllegalArgumentException("Dimensions disagree");
+        }
+        Vector result = new Vector(dimension);
+        for (int i = 0; i < dimension; i++) {
+            result.components[i] = components[i] + that.components[i];
+        }
+        return result;
+    }
 
-	// create and return a new object whose value is (this - that)
-	public Vector minus(Vector that) {
-		if (dim() != that.dim())
-			throw new IllegalArgumentException("dimensions disagree");
-		Vector c = new Vector(_n);
-		for (int i = 0; i < _n; i++)
-			c._data[i] = _data[i] - that._data[i];
-		return c;
-	}
+    // Create and return a new vector whose value is (this - that)
+    public Vector minus(Vector that) {
+        if (dim() != that.dim()) {
+            throw new IllegalArgumentException("Dimensions disagree");
+        }
+        Vector result = new Vector(dimension);
+        for (int i = 0; i < dimension; i++) {
+            result.components[i] = components[i] - that.components[i];
+        }
+        return result;
+    }
 
-	// return the corresponding coordinate
-	public double coordinate(int i) {
-		return _data[i];
-	}
+    // Return the corresponding coordinate
+    public double coordinate(int i) {
+        return components[i];
+    }
 
-	// create and return a new object whose value is (this * factor)
-	public Vector scale(double factor) {
-		Vector c = new Vector(_n);
-		for (int i = 0; i < _n; i++)
-			c._data[i] = factor * _data[i];
-		return c;
-	}
+    // Create and return a new vector whose value is (this * factor)
+    public Vector scale(double factor) {
+        Vector result = new Vector(dimension);
+        for (int i = 0; i < dimension; i++) {
+            result.components[i] = factor * components[i];
+        }
+        return result;
+    }
 
-	// return the corresponding unit vector
-	public Vector direction() {
-		if (magnitude() > 0.0)
-			return scale(1.0 / magnitude());
-		else
-			return new Vector(this);
-	}
+    // Return the corresponding unit vector
+    public Vector direction() {
+        double magnitude = magnitude();
+        if (magnitude > 0.0) {
+            return scale(1.0 / magnitude);
+        }
+        return new Vector(this);
+    }
 
-	// return a string representation of the vector
-	public String toString() {
-		StringBuilder s = new StringBuilder();
-		s.append('[');
-		for (int i = 0; i < _n; i++) {
-			s.append(_data[i]);
-			if (i < _n - 1)
-				s.append(", ");
-		}
-		s.append(']');
-		return s.toString();
-	}
-
+    // Return a string representation of the vector
+    @Override
+    public String toString() {
+        StringBuilder sb = new StringBuilder();
+        sb.append('[');
+        for (int i = 0; i < dimension; i++) {
+            sb.append(components[i]);
+            if (i < dimension - 1) {
+                sb.append(", ");
+            }
+        }
+        sb.append(']');
+        return sb.toString();
+    }
 }

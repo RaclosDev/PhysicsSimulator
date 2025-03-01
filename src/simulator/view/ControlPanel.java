@@ -1,6 +1,5 @@
 package simulator.view;
 
-
 import org.json.JSONObject;
 import simulator.control.Controller;
 import simulator.model.Body;
@@ -9,279 +8,214 @@ import simulator.model.SimulatorObserver;
 import javax.swing.*;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import java.awt.*;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 public class ControlPanel extends JToolBar implements SimulatorObserver {
 
-    private Controller _ctrl;
-    //private boolean _stopped;
-    JButton openFileButton;
-    JFileChooser chooser = new JFileChooser();
-    JButton gravityLawsButton;
-    JButton playButton;
-    JButton stopButton;
-    JButton exitButton;
-    JSpinner selectorPasos;
-    JTextField changeDeltaTime;
-    JSpinner delayTimeSpinner;
-    private volatile Thread _thread;
+    private final Controller controller;
+    private JButton openFileButton;
+    private JFileChooser fileChooser = new JFileChooser();
+    private JButton gravityLawsButton;
+    private JButton playButton;
+    private JButton stopButton;
+    private JButton exitButton;
+    private JSpinner stepsSpinner;
+    private JTextField deltaTimeField;
+    private JSpinner delaySpinner;
+    private volatile Thread simulationThread;
 
-
-
-    ControlPanel(Controller ctrl) {
-
-        _ctrl = ctrl;
-        //_stopped = true;
+    ControlPanel(Controller controller) {
+        this.controller = controller;
         initGUI();
-        _ctrl.addObserver(this);
+        controller.addObserver(this);
     }
 
     private void initGUI() {
-        iniOpenFileButton();
-        iniOpenLawSelectorButton();
-        iniPlayButton();
-        iniStopButton();
-        iniExitButton();
-        iniSelectorPasos();
-        iniChangeDeltaTime();
-        iniDelaySpinner();
+        initOpenFileButton();
+        initGravityLawsButton();
+        initPlayButton();
+        initStopButton();
+        initExitButton();
+        initStepsSpinner();
+        initDeltaTimeField();
+        initDelaySpinner();
 
-        this.setLayout(new BoxLayout(this, BoxLayout.LINE_AXIS));
-        this.setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
-        this.add(openFileButton);
-        this.add(Box.createRigidArea(new Dimension(10, 0)));
-        this.add(gravityLawsButton);
-        this.add(Box.createRigidArea(new Dimension(10, 0)));
-        this.add(playButton);
-        this.add(stopButton);
-        this.add(Box.createRigidArea(new Dimension(10, 0)));
-        this.add(new JLabel("Delay:"));
-        this.add(delayTimeSpinner);
-        this.add(Box.createRigidArea(new Dimension(10, 0)));
-        this.add(new JLabel("Steps:"));
-        this.add(selectorPasos);
-        this.add(Box.createRigidArea(new Dimension(10, 0)));
-        this.add(new JLabel("Delta Time:"));
-        this.add(changeDeltaTime);
-        this.add(Box.createRigidArea(new Dimension(450, 0)));
-        this.add(exitButton);
+        setLayout(new BoxLayout(this, BoxLayout.LINE_AXIS));
+        setBorder(BorderFactory.createEmptyBorder(0, 10, 10, 10));
+        add(openFileButton);
+        add(Box.createRigidArea(new Dimension(10, 0)));
+        add(gravityLawsButton);
+        add(Box.createRigidArea(new Dimension(10, 0)));
+        add(playButton);
+        add(stopButton);
+        add(Box.createRigidArea(new Dimension(10, 0)));
+        add(new JLabel("Delay:"));
+        add(delaySpinner);
+        add(Box.createRigidArea(new Dimension(10, 0)));
+        add(new JLabel("Steps:"));
+        add(stepsSpinner);
+        add(Box.createRigidArea(new Dimension(10, 0)));
+        add(new JLabel("Delta Time:"));
+        add(deltaTimeField);
+        add(Box.createRigidArea(new Dimension(450, 0)));
+        add(exitButton);
     }
 
-    private void iniOpenFileButton() {
+    private void initOpenFileButton() {
         openFileButton = new JButton();
-        openFileButton.setActionCommand("abrir");
-        openFileButton.setIcon(new ImageIcon(this.getClass().getResource("images//open.png")));
+        openFileButton.setActionCommand("open");
+        openFileButton.setIcon(new ImageIcon(Objects.requireNonNull(getClass().getResource("images/open.png"))));
         openFileButton.setToolTipText("Load bodies file into the editor");
 
-        openFileButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (e.getActionCommand().equals("abrir")) {
-                    FileNameExtensionFilter filter = new FileNameExtensionFilter("TXT", "txt");
-                    chooser.setFileFilter(filter);
-                    int returnVal = chooser.showOpenDialog(openFileButton);
-                    if (returnVal == JFileChooser.APPROVE_OPTION) {
-                        System.out.println("You chose to open this file: " + chooser.getSelectedFile().getName());
-                    }
-
+        openFileButton.addActionListener(e -> {
+            if (e.getActionCommand().equals("open")) {
+                FileNameExtensionFilter filter = new FileNameExtensionFilter("TXT", "txt");
+                fileChooser.setFileFilter(filter);
+                int returnVal = fileChooser.showOpenDialog(openFileButton);
+                if (returnVal == JFileChooser.APPROVE_OPTION) {
+                    System.out.println("You chose to open this file: " + fileChooser.getSelectedFile().getName());
                 }
-                InputStream in = null;
-                try {
-                    in = new FileInputStream(chooser.getSelectedFile());
-                } catch (FileNotFoundException e1) {
-                    e1.printStackTrace();
-                }
-                _ctrl.reset();
-                _ctrl.loadBodies(in);
+            }
+            try (InputStream in = new FileInputStream(fileChooser.getSelectedFile())) {
+                controller.reset();
+                controller.loadBodies(in);
+            } catch (IOException ex) {
+                ex.printStackTrace();
             }
         });
     }
 
-    private void iniOpenLawSelectorButton() {
+    private void initGravityLawsButton() {
         gravityLawsButton = new JButton();
-        Dimension dim = Toolkit.getDefaultToolkit().getScreenSize();
-
-        gravityLawsButton.setActionCommand("seleccionar");
-        gravityLawsButton.setIcon(new ImageIcon(this.getClass().getResource("images//physics.png")));
+        gravityLawsButton.setActionCommand("select");
+        gravityLawsButton.setIcon(new ImageIcon(Objects.requireNonNull(getClass().getResource("images/physics.png"))));
         gravityLawsButton.setToolTipText("Load the gravity law into the editor");
 
-        gravityLawsButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                List<String> lawsArray = new ArrayList<>();
-
-                for (JSONObject o : _ctrl.getGravityLawsFactory().getInfo()) {
-                    lawsArray.add(o.getString("desc") + " (" + o.get("type") + ")");
-                }
-                JComboBox<String> lawsJComboBox = new JComboBox<>();
-                lawsJComboBox.setModel(new DefaultComboBoxModel(lawsArray.toArray()));
-
-
-                JFrame frame = new JFrame("Gravity Laws Selector");
-                frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
-
-                frame.getContentPane().setLayout(new BorderLayout());
-
-                JPanel buttonPanel = new JPanel();
-                JPanel textPanel = new JPanel();
-
-                buttonPanel.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-                textPanel.setComponentOrientation(ComponentOrientation.LEFT_TO_RIGHT);
-
-                frame.getContentPane().add(buttonPanel, BorderLayout.SOUTH);
-                frame.getContentPane().add(textPanel, BorderLayout.NORTH);
-
-
-                buttonPanel.add(createOkButton(frame, lawsJComboBox, lawsArray));
-                buttonPanel.add(createCancelButton(frame));
-
-                textPanel.add(new JLabel("Select the gravity law to use"));
-                textPanel.add(lawsJComboBox);
-                frame.pack();
-                frame.setLocation(dim.width / 2 - frame.getSize().width / 2, dim.height / 2 - frame.getSize().height / 2);
-                frame.setVisible(true);
-                frame.setResizable(false);
+        gravityLawsButton.addActionListener(e -> {
+            List<String> lawsArray = new ArrayList<>();
+            for (JSONObject o : controller.getGravityLawsFactory().getInfo()) {
+                lawsArray.add(o.getString("desc") + " (" + o.get("type") + ")");
             }
+            JComboBox<String> lawsComboBox = new JComboBox<>(lawsArray.toArray(new String[0]));
+
+            JFrame frame = new JFrame("Gravity Laws Selector");
+            frame.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+            frame.getContentPane().setLayout(new BorderLayout());
+
+            JPanel buttonPanel = new JPanel();
+            JPanel textPanel = new JPanel();
+
+            buttonPanel.add(createOkButton(frame, lawsComboBox, lawsArray));
+            buttonPanel.add(createCancelButton(frame));
+
+            textPanel.add(new JLabel("Select the gravity law to use"));
+            textPanel.add(lawsComboBox);
+
+            frame.getContentPane().add(buttonPanel, BorderLayout.SOUTH);
+            frame.getContentPane().add(textPanel, BorderLayout.NORTH);
+
+            frame.pack();
+            frame.setLocationRelativeTo(null);
+            frame.setVisible(true);
+            frame.setResizable(false);
         });
     }
 
-    private JButton createOkButton(JFrame frame, JComboBox lawsJComboBox, List lawsArrays) {
-        JButton okButton = new JButton("ok");
-        okButton.setActionCommand("ok");
-        okButton.setVisible(true);
-
-        okButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                frame.dispose();
-                String selectedLaw = (String) lawsJComboBox.getSelectedItem();
-                for (JSONObject o : _ctrl.getGravityLawsFactory().getInfo()) {
-
-                    if ((o.getString("desc") + " (" + o.get("type") + ")").equals(selectedLaw)) {
-                        _ctrl.setGravityLaws(o);
-                    }
+    private JButton createOkButton(JFrame frame, JComboBox<String> lawsComboBox, List<String> lawsArray) {
+        JButton okButton = new JButton("OK");
+        okButton.addActionListener(e -> {
+            frame.dispose();
+            String selectedLaw = (String) lawsComboBox.getSelectedItem();
+            for (JSONObject o : controller.getGravityLawsFactory().getInfo()) {
+                if ((o.getString("desc") + " (" + o.get("type") + ")").equals(selectedLaw)) {
+                    controller.setGravityLaws(o);
                 }
-
-
-                //TODO FALTA HACER QUE CAMBIE LA LEY SOLO LA MUESTRA
-
             }
         });
-
-
         return okButton;
     }
 
     private JButton createCancelButton(JFrame frame) {
-        JButton cancelButton = new JButton("cancel");//added for cancel button
-        cancelButton.setActionCommand("cancel");
-        cancelButton.setVisible(true);//added for cancel button
-        cancelButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                frame.dispose();
-
-            }
-        });
-
+        JButton cancelButton = new JButton("Cancel");
+        cancelButton.addActionListener(e -> frame.dispose());
         return cancelButton;
     }
 
-    private void iniPlayButton() throws IllegalArgumentException {
+    private void initPlayButton() {
         playButton = new JButton();
-
         playButton.setActionCommand("run");
-        playButton.setIcon(new ImageIcon(this.getClass().getResource("images//run.png")));
+        playButton.setIcon(new ImageIcon(Objects.requireNonNull(getClass().getResource("images/run.png"))));
         playButton.setToolTipText("Run the simulator");
-        playButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (e.getActionCommand().equals("run")) {
-                    try {
-                        disableAllButtons();
 
-                        _thread = new Thread(new Runnable() {
-                            @Override
-                            public void run() {
-                                run_sim(Integer.parseInt(selectorPasos.getValue().toString()),((Integer) delayTimeSpinner.getValue()).longValue());
-                            }
-                        });
-
-                        _thread.start();
-                        _ctrl.setDeltaTime(Double.parseDouble(changeDeltaTime.getText()));
-
-                        //_stopped = false;
-                        //run_sim(Integer.parseInt(selectorPasos.getValue().toString()));
-                    } catch (NumberFormatException ex2) { //Para caracteres no permitidos
-                        JFrame frame = new JFrame("JOptionPane showMessageDialog error");
-                        JOptionPane.showMessageDialog(frame, "Hay caracteres no permitidos en delta time, solo se aceptan numeros.");
-                    } catch (IllegalArgumentException ex) { //Para numeros diferentes
-                        JFrame frame = new JFrame("JOptionPane showMessageDialog error");
-                        JOptionPane.showMessageDialog(frame, ex.getMessage());
-                    }
-
-                    //_ctrl.setDeltaTime(Integer.parseInt(changeDeltaTime.getText()));
-
-                }
+        playButton.addActionListener(e -> {
+            try {
+                disableAllButtons();
+                simulationThread = new Thread(() -> runSimulation(
+                        Integer.parseInt(stepsSpinner.getValue().toString()),
+                        ((Integer) delaySpinner.getValue()).longValue()
+                ));
+                simulationThread.start();
+                controller.setDeltaTime(Double.parseDouble(deltaTimeField.getText()));
+            } catch (NumberFormatException ex) {
+                showErrorDialog("Invalid characters in delta time. Only numbers are allowed.");
+            } catch (IllegalArgumentException ex) {
+                showErrorDialog(ex.getMessage());
             }
         });
-
     }
 
-    private void iniStopButton() {
+    private void initStopButton() {
         stopButton = new JButton();
-
         stopButton.setActionCommand("stop");
-        stopButton.setIcon(new ImageIcon(this.getClass().getResource("images//stop.png")));
+        stopButton.setIcon(new ImageIcon(Objects.requireNonNull(getClass().getResource("images/stop.png"))));
         stopButton.setToolTipText("Stop the simulator");
-        stopButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (e.getActionCommand().equals("stop")) {
-                    _thread.interrupt();
-                    _thread = null;
-                    //_stopped = true;
-                    enableAllButtons();
-                }
+
+        stopButton.addActionListener(e -> {
+            if (simulationThread != null) {
+                simulationThread.interrupt();
+                simulationThread = null;
+                enableAllButtons();
             }
         });
-
     }
 
-    private void iniExitButton() {
+    private void initExitButton() {
         exitButton = new JButton();
-
         exitButton.setActionCommand("exit");
-        exitButton.setIcon(new ImageIcon(this.getClass().getResource("images//exit.png")));
+        exitButton.setIcon(new ImageIcon(Objects.requireNonNull(getClass().getResource("images/exit.png"))));
         exitButton.setToolTipText("Exit the simulator");
-        exitButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                if (e.getActionCommand().equals("exit")) {
 
-                    JFrame frame = new JFrame("JOptionPane showMessageDialog error");
-                    Object[] opciones = {"Aceptar", "Cancelar"};
-                    int eleccion = JOptionPane.showOptionDialog(frame, "¿Seguro que quieres cerrar el simulador?", "Mensaje de Confirmacion",
-                            JOptionPane.YES_NO_OPTION,
-                            JOptionPane.QUESTION_MESSAGE, null, opciones, "Aceptar");
-                    if (eleccion == JOptionPane.YES_OPTION) {
-                        System.exit(0);
-                    }
-                }
+        exitButton.addActionListener(e -> {
+            int choice = JOptionPane.showConfirmDialog(
+                    null,
+                    "Are you sure you want to exit the simulator?",
+                    "Confirmation",
+                    JOptionPane.YES_NO_OPTION
+            );
+            if (choice == JOptionPane.YES_OPTION) {
+                System.exit(0);
             }
         });
-
     }
 
-    private void iniChangeDeltaTime() {
-        changeDeltaTime = new JTextField("2500");
-        changeDeltaTime.setToolTipText("Change the delta time");
-
+    private void initStepsSpinner() {
+        stepsSpinner = new JSpinner(new SpinnerNumberModel(10000, 1, Integer.MAX_VALUE, 1));
+        stepsSpinner.setToolTipText("Change the number of simulation steps");
     }
 
-    private void iniSelectorPasos() {
-        selectorPasos = new JSpinner();
-        selectorPasos.setValue(10000);
-        selectorPasos.setToolTipText("Cambia los pasos de la simulacion");
+    private void initDeltaTimeField() {
+        deltaTimeField = new JTextField("2500");
+        deltaTimeField.setToolTipText("Change the delta time");
+    }
+
+    private void initDelaySpinner() {
+        delaySpinner = new JSpinner(new SpinnerNumberModel(0, 0, 1000, 1));
+        delaySpinner.setToolTipText("Change the delay between steps");
     }
 
     private void disableAllButtons() {
@@ -289,8 +223,8 @@ public class ControlPanel extends JToolBar implements SimulatorObserver {
         gravityLawsButton.setEnabled(false);
         playButton.setEnabled(false);
         exitButton.setEnabled(false);
-        selectorPasos.setEnabled(false);
-        changeDeltaTime.setEnabled(false);
+        stepsSpinner.setEnabled(false);
+        deltaTimeField.setEnabled(false);
     }
 
     private void enableAllButtons() {
@@ -298,135 +232,60 @@ public class ControlPanel extends JToolBar implements SimulatorObserver {
         gravityLawsButton.setEnabled(true);
         playButton.setEnabled(true);
         exitButton.setEnabled(true);
-        selectorPasos.setEnabled(true);
-        changeDeltaTime.setEnabled(true);
+        stepsSpinner.setEnabled(true);
+        deltaTimeField.setEnabled(true);
     }
 
-    private void iniDelaySpinner() {
-        SpinnerNumberModel delay = new SpinnerNumberModel(0, 0, 1000, 1);
-        delayTimeSpinner = new JSpinner(delay);
-        delayTimeSpinner.setToolTipText("Cambia el delay entre pasos");
-    }
-
-    private void run_sim(int n, long delay) {
-        while (n > 0 && _thread != null) {
+    private void runSimulation(int steps, long delay) {
+        while (steps > 0 && simulationThread != null) {
             try {
-                this._ctrl.run(1);
-
-            } catch (Exception e) {
-                JFrame frame = new JFrame("JOptionPane showMessageDialog error");
-                JOptionPane.showMessageDialog(frame, e.getMessage());
-                //this._stopped=true;
-                enableAllButtons();
-                return;
-            }
-            try {
-                _thread.sleep(delay);
+                controller.run(1);
+                Thread.sleep(delay);
             } catch (InterruptedException ex) {
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-            n--;
-        }
-
-        //this._stopped = true;
-        exitButton.setEnabled(true);
-
-        /*
-        if (n > 0 && !_stopped) {
-            try {
-                _ctrl.run(1);
-            } catch (Exception e) {
-                // TODO Muestra el errorcon una ventana JOptionPane
-                JFrame frame = new JFrame("JOptionPane showMessageDialog error");
-                JOptionPane.showMessageDialog(frame, e.getMessage());
-                // TODO Pon enabletodos los botones
+                break;
+            } catch (Exception ex) {
+                showErrorDialog(ex.getMessage());
                 enableAllButtons();
-                _stopped = true;
                 return;
             }
-            SwingUtilities.invokeLater(new Runnable() {
-                @Override
-                public void run() {
-                    run_sim(n - 1);
-                }
-            });
+            steps--;
         }
-        else {
-            _stopped = true;
-            //TODO Pon enable todos los botone
-            enableAllButtons();
-        }
-        */
+        enableAllButtons();
     }
 
+    private void showErrorDialog(String message) {
+        JOptionPane.showMessageDialog(null, message, "Error", JOptionPane.ERROR_MESSAGE);
+    }
 
-    //TODO Añade los métodos de SimulatorObserver
     @Override
     public void onRegister(List<Body> bodies, double time, double dt, String gLawsDesc) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                changeDeltaTime.setText(Double.toString(dt));
-            }
-        });
-
-        //changeDeltaTime.setText(Double.toString(dt));
+        SwingUtilities.invokeLater(() -> deltaTimeField.setText(Double.toString(dt)));
     }
 
     @Override
     public void onReset(List<Body> bodies, double time, double dt, String gLawsDesc) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                changeDeltaTime.setText(Double.toString(dt));
-            }
-        });
-
-
-        //changeDeltaTime.setText(Double.toString(dt));
+        SwingUtilities.invokeLater(() -> deltaTimeField.setText(Double.toString(dt)));
     }
 
     @Override
     public void onBodyAdded(List<Body> bodies, Body b) {
-
     }
 
     @Override
     public void onAdvance(List<Body> bodies, double time) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                if (bodies.isEmpty()) {
-                    throw new IllegalArgumentException("No hay ningun cuerpo, selecciona un fichero");
-                }
+        SwingUtilities.invokeLater(() -> {
+            if (bodies.isEmpty()) {
+                showErrorDialog("No bodies found. Please load a file.");
             }
         });
-
-
-
-        /*if (bodies.isEmpty()) {
-            throw new IllegalArgumentException("No hay ningun cuerpo, selecciona un fichero");
-        }*/
     }
 
     @Override
     public void onDeltaTimeChanged(double dt) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                changeDeltaTime.setText(Double.toString(dt));
-            }
-        });
-
-        //changeDeltaTime.setText(Double.toString(dt));
+        SwingUtilities.invokeLater(() -> deltaTimeField.setText(Double.toString(dt)));
     }
 
     @Override
     public void onGravityLawChanged(String gLawsDesc) {
-
     }
-
-
 }

@@ -6,23 +6,22 @@ public class MassLossingBody extends Body {
 
     private double lossFactor;
     private double lossFrequency;
-    private double tiempoTotal;
+    private double totalTime;
 
-    public MassLossingBody(String id, Vector velocidad, Vector aceleracion, Vector posicion, double masa, double lossFrequency,  double lossFactortor) {
-        super(id, velocidad, aceleracion, posicion, masa);
-        // TODO Auto-generated constructor stub
-        this.lossFactor = lossFactortor;
+    public MassLossingBody(String id, Vector velocity, Vector acceleration, Vector position, double mass, double lossFrequency, double lossFactor) {
+        super(id, velocity, acceleration, position, mass);
+        this.lossFactor = lossFactor;
         this.lossFrequency = lossFrequency;
-        this.tiempoTotal = 0.0;
+        this.totalTime = 0.0;
     }
 
-    void move(double t) {
-        super.move(t);
-        tiempoTotal += t;
-        if (tiempoTotal >= lossFrequency) {    //comprueba si han pasado lossFrequency	segundos
-            setMass(getMass() * (1 - lossFactor));
-            tiempoTotal = 0.0;
+    @Override
+    public void move(double time) {
+        super.move(time);
+        totalTime += time;
+        if (totalTime >= lossFrequency) { // Check if lossFrequency seconds have passed
+            setMass(getMass() * (1 - lossFactor)); // Reduce mass by lossFactor
+            totalTime = 0.0; // Reset the timer
         }
     }
-
 }

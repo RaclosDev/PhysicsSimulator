@@ -6,106 +6,80 @@ import simulator.model.SimulatorObserver;
 
 import javax.swing.*;
 import javax.swing.table.AbstractTableModel;
-import java.util.ArrayList;
 import java.util.List;
 
 public class BodiesTableModel extends AbstractTableModel implements SimulatorObserver {
-    // Añade los nombres de columnas
-    private String[] columNames = {"Id", "Mass", "Position", "Velocity", "Aceleration"};
-    private List<Body> _bodies;
 
-    BodiesTableModel(Controller ctrl) {
-        _bodies = new ArrayList<>();
-        ctrl.addObserver(this);
+    private static final String[] COLUMN_NAMES = {"Id", "Mass", "Position", "Velocity", "Acceleration"};
+    private List<Body> bodies;
+
+    public BodiesTableModel(Controller controller) {
+        this.bodies = List.of(); // Inicializa con una lista vacía
+        controller.addObserver(this);
     }
 
     @Override
     public int getRowCount() {
-        return _bodies.size();
+        return bodies.size();
     }
 
     @Override
     public int getColumnCount() {
-        return columNames.length;
+        return COLUMN_NAMES.length;
     }
 
     @Override
     public String getColumnName(int column) {
-        return columNames[column];
+        return COLUMN_NAMES[column];
     }
 
     @Override
     public Object getValueAt(int rowIndex, int columnIndex) {
-        String dato = columNames[columnIndex];
-        switch (dato) {
-            case "Id":
-                return _bodies.get(rowIndex).getId();
-
-            case "Mass":
-                return _bodies.get(rowIndex).getMass();
-
-            case "Position":
-                return _bodies.get(rowIndex).getPosition();
-
-            case "Velocity":
-                return _bodies.get(rowIndex).getVelocity();
-
-            case "Aceleration":
-                return _bodies.get(rowIndex).getAcceleration();
-
-
-        }
-        return null;
-    }
-
-
-    @Override
-    public void onRegister(List<Body> bodies, double time, double dt, String gLawsDesc) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _bodies = bodies;
-                fireTableStructureChanged();
-            }
-        });
+        Body body = bodies.get(rowIndex);
+        return switch (COLUMN_NAMES[columnIndex]) {
+            case "Id" -> body.getId();
+            case "Mass" -> body.getMass();
+            case "Position" -> body.getPosition();
+            case "Velocity" -> body.getVelocity();
+            case "Acceleration" -> body.getAcceleration();
+            default -> null;
+        };
     }
 
     @Override
-    public void onReset(List<Body> bodies, double time, double dt, String gLawsDesc) {
-
+    public void onRegister(List<Body> bodies, double time, double dt, String gravityLawsDesc) {
+        updateTable(bodies);
     }
 
     @Override
-    public void onBodyAdded(List<Body> bodies, Body b) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _bodies = bodies;
-                fireTableStructureChanged();
-            }
-        });
+    public void onReset(List<Body> bodies, double time, double dt, String gravityLawsDesc) {
+        updateTable(bodies);
+    }
+
+    @Override
+    public void onBodyAdded(List<Body> bodies, Body body) {
+        updateTable(bodies);
     }
 
     @Override
     public void onAdvance(List<Body> bodies, double time) {
-
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _bodies = bodies;
-                fireTableStructureChanged();
-            }
-        });
-
+        updateTable(bodies);
     }
 
     @Override
     public void onDeltaTimeChanged(double dt) {
-
+        // No es necesario actualizar la tabla
     }
 
     @Override
-    public void onGravityLawChanged(String gLawsDesc) {
+    public void onGravityLawChanged(String gravityLawsDesc) {
+        // No es necesario actualizar la tabla
+    }
 
+    private void updateTable(List<Body> bodies) {
+        SwingUtilities.invokeLater(() -> {
+            this.bodies = bodies;
+            fireTableStructureChanged();
+        });
     }
 }

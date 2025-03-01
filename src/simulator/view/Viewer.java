@@ -12,22 +12,22 @@ import java.awt.event.KeyEvent;
 import java.awt.event.KeyListener;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
-import java.util.ArrayList;
 import java.util.List;
 
 public class Viewer extends JComponent implements SimulatorObserver {
-    private static final int _WIDTH = 1000;
-    private static final int _HEIGHT = 1000;
-    // Añade constantespara los colores
-    private int _centerX;
-    private int _centerY;
-    private double _scale;
-    private List<Body> _bodies;
-    private boolean _showHelp;
 
-    Viewer(Controller ctrl) {
+    private static final int WIDTH = 1000;
+    private static final int HEIGHT = 1000;
+
+    private int centerX;
+    private int centerY;
+    private double scale;
+    private List<Body> bodies;
+    private boolean showHelp;
+
+    Viewer(Controller controller) {
         initGUI();
-        ctrl.addObserver(this);
+        controller.addObserver(this);
         repaint();
     }
 
@@ -37,61 +37,53 @@ public class Viewer extends JComponent implements SimulatorObserver {
                 BorderFactory.createLineBorder(Color.black, 2),
                 "Viewer",
                 TitledBorder.LEFT, TitledBorder.TOP));
-        this.setSize(_WIDTH, _HEIGHT);
-        _bodies = new ArrayList<>();
-        _scale = 1;
-        _showHelp = true;
+        setSize(WIDTH, HEIGHT);
+        bodies = List.of();
+        scale = 1.0;
+        showHelp = true;
 
         addKeyListener(new KeyListener() {
             @Override
             public void keyTyped(KeyEvent e) {
-
             }
 
-            // ...
             @Override
             public void keyPressed(KeyEvent e) {
-
                 switch (e.getKeyChar()) {
                     case '-':
-                        _scale = _scale * 1.1;
+                        scale *= 1.1;
                         break;
                     case '+':
-                        _scale = Math.max(1000.0, _scale / 1.1);
+                        scale = Math.max(1000.0, scale / 1.1);
                         break;
                     case '=':
                         autoScale();
                         break;
                     case 'h':
-                        _showHelp = !_showHelp;
+                        showHelp = !showHelp;
                         break;
-                    default:
                 }
                 repaint();
             }
 
             @Override
             public void keyReleased(KeyEvent e) {
-
             }
         });
+
         addMouseListener(new MouseListener() {
             @Override
             public void mouseClicked(MouseEvent e) {
-
             }
 
             @Override
             public void mousePressed(MouseEvent e) {
-
             }
 
             @Override
             public void mouseReleased(MouseEvent e) {
-
             }
 
-            // ...
             @Override
             public void mouseEntered(MouseEvent e) {
                 requestFocus();
@@ -99,7 +91,6 @@ public class Viewer extends JComponent implements SimulatorObserver {
 
             @Override
             public void mouseExited(MouseEvent e) {
-
             }
         });
     }
@@ -111,100 +102,73 @@ public class Viewer extends JComponent implements SimulatorObserver {
         gr.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         gr.setRenderingHint(RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
 
+        // Draw help text
         gr.setColor(Color.RED);
         gr.drawString("h: toggle help, +: zoom in, -: zoom out, =: fit", 5, 25);
-        gr.drawString("Scaling ratio: " + _scale, 5, 40);
-        // use ’gr’ to draw not ’g’
-// calculate the center
-        _centerX = getWidth() / 2;
-        _centerY = getHeight() / 2;
-// TODO draw a cross at center
-        gr.drawLine(_centerX, _centerY + 10, _centerX, _centerY - 10);
-        gr.drawLine(_centerX + 10, _centerY, _centerX - 10, _centerY);
-        //gr.drawLine((int) ((_centerX + 10) / _scale), (int) ((_centerY) / _scale), (int) ((_centerX - 10) / _scale), (int) ((_centerY) / _scale));
-        //gr.drawLine((int) ((_centerX) / _scale), (int) ((_centerY + 10) / _scale), (int) ((_centerX) / _scale), (int) ((_centerY - 10) / _scale));
-// TODO draw bodies
-        for (Body b : _bodies) {
+        gr.drawString("Scaling ratio: " + scale, 5, 40);
 
-            gr.fillOval(_centerX + (int) (b.getPosition().coordinate(0) / _scale) - 5, _centerY - (int) (b.getPosition().coordinate(1) / _scale) - 5, 10, 10);
-            gr.drawString(b.getId(), _centerX + (int) (b.getPosition().coordinate(0) / _scale) - 5, _centerY - (int) (b.getPosition().coordinate(1) / _scale) - 5);
+        // Calculate the center
+        centerX = getWidth() / 2;
+        centerY = getHeight() / 2;
+
+        // Draw a cross at the center
+        gr.drawLine(centerX, centerY + 10, centerX, centerY - 10);
+        gr.drawLine(centerX + 10, centerY, centerX - 10, centerY);
+
+        // Draw bodies
+        for (Body body : bodies) {
+            int x = centerX + (int) (body.getPosition().coordinate(0) / scale) - 5;
+            int y = centerY - (int) (body.getPosition().coordinate(1) / scale) - 5;
+            gr.fillOval(x, y, 10, 10);
+            gr.drawString(body.getId(), x, y);
         }
-
-// TODO draw help if _showHelp is true
-
     }
 
-    // other private/protected methods
-// ...
     private void autoScale() {
         double max = 1.0;
-        for (Body b : _bodies) {
-            Vector p = b.getPosition();
-            for (int i = 0; i < p.dim(); i++)
-                max = Math.max(max,
-                        Math.abs(b.getPosition().coordinate(i)));
+        for (Body body : bodies) {
+            Vector position = body.getPosition();
+            for (int i = 0; i < position.dim(); i++) {
+                max = Math.max(max, Math.abs(position.coordinate(i)));
+            }
         }
-        double size = Math.max(1.0, Math.min((double) getWidth(),
-                (double) getHeight()));
-        _scale = max > size ? 4.0 * max / size : 1.0;
+        double size = Math.max(1.0, Math.min(getWidth(), getHeight()));
+        scale = max > size ? 4.0 * max / size : 1.0;
     }
 
     @Override
-    public void onRegister(List<Body> bodies, double time, double dt, String gLawsDesc) {
-
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _bodies = bodies;
-                autoScale();
-                repaint();
-            }
-        });
+    public void onRegister(List<Body> bodies, double time, double dt, String gravityLawsDesc) {
+        updateBodies(bodies);
     }
 
     @Override
-    public void onReset(List<Body> bodies, double time, double dt, String gLawsDesc) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _bodies = bodies;
-                autoScale();
-                repaint();
-            }
-        });
+    public void onReset(List<Body> bodies, double time, double dt, String gravityLawsDesc) {
+        updateBodies(bodies);
     }
 
     @Override
-    public void onBodyAdded(List<Body> bodies, Body b) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                _bodies = bodies;
-                autoScale();
-                repaint();
-            }
-        });
+    public void onBodyAdded(List<Body> bodies, Body body) {
+        updateBodies(bodies);
     }
 
     @Override
     public void onAdvance(List<Body> bodies, double time) {
-        SwingUtilities.invokeLater(new Runnable() {
-            @Override
-            public void run() {
-                repaint();
-            }
-        });
+        SwingUtilities.invokeLater(this::repaint);
     }
 
     @Override
     public void onDeltaTimeChanged(double dt) {
-
     }
 
     @Override
-    public void onGravityLawChanged(String gLawsDesc) {
-
+    public void onGravityLawChanged(String gravityLawsDesc) {
     }
-// SimulatorObserver methods
-// ...
+
+    private void updateBodies(List<Body> bodies) {
+        SwingUtilities.invokeLater(() -> {
+            this.bodies = bodies;
+            autoScale();
+            repaint();
+        });
+    }
 }
